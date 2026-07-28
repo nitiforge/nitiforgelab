@@ -901,6 +901,10 @@
     <div id="appLockOverlay" style="display: none; position: fixed; inset: 0; background: #0d0f14; z-index: 9999; align-items: center; justify-content: center; flex-direction: column; color: #fff; padding: 20px; text-align: center;">
         <div style="font-size: 42px; margin-bottom: 8px;" id="lockIcon">🔒</div>
         <div style="font-weight: 800; font-size: 18px; margin-bottom: 4px;">Lab Fees Manager</div>
+        <div id="loginRoleSelector" style="display: none; gap: 8px; margin-bottom: 14px;">
+            <button id="roleSelectOwner" onclick="selectLoginRole('owner')" style="padding: 9px 18px; border-radius: 8px; border: 1px solid #333; background: #1a56db; color: #fff; font-weight: 700; font-size: 13px; cursor: pointer;">👤 Owner</button>
+            <button id="roleSelectCoord" onclick="selectLoginRole('coordinator')" style="padding: 9px 18px; border-radius: 8px; border: 1px solid #333; background: #1a1d29; color: #8b90a8; font-weight: 700; font-size: 13px; cursor: pointer;">🤝 Coordinator</button>
+        </div>
         <div style="font-size: 13px; opacity: 0.7; margin-bottom: 18px;" id="lockSubtitle">Enter password to continue</div>
         <button id="fingerprintRetryBtn" onclick="attemptBiometricUnlock()" style="display: none; margin-bottom: 14px; padding: 12px 28px; background: linear-gradient(135deg,#1a56db,#0ea770); border: none; border-radius: 8px; color: #fff; font-weight: 700; font-size: 15px; cursor: pointer;">👆 Use Fingerprint</button>
         <input type="password" id="appLockInput" placeholder="Password" style="padding: 12px 14px; border-radius: 8px; border: 1px solid #333; width: 220px; text-align: center; font-size: 16px; background: #1a1d29; color: #fff;">
@@ -1107,11 +1111,11 @@
                 <h2 class="section-title">🔄 Coordinator → Owner Handover</h2>
 
                 <div id="coordSuccessMsg" class="alert alert-success" style="display: none;">
-                    ✅ Entry saved!
+                    ✅ Handover entry saved!
                 </div>
 
                 <div class="alert alert-warning" style="margin-bottom: 20px;">
-                    📌 Every entry here is something that <strong>already happened</strong> — add it when the money actually moves, not before. No "mark as done later" needed, so nothing can get double-counted.
+                    📌 Track money moving <strong>both ways</strong> with the library coordinator — money she gives you (to hand to owner Tejas Ghodekar) and money she demands back from you.
                 </div>
 
                 <div class="grand-total-card" id="grandTotalToGiveCoord"></div>
@@ -1127,16 +1131,24 @@
                         <div class="stat-label">Total Received</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-number" id="coordHandedAmount">₹0</div>
-                        <div class="stat-label">Handed to Tejas</div>
+                        <div class="stat-number" id="coordPendingEntries">0</div>
+                        <div class="stat-label">Pending Handover</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-number" id="coordReturnedAmount">₹0</div>
-                        <div class="stat-label">Returned to Coordinator</div>
+                        <div class="stat-number" id="coordPendingAmount">₹0</div>
+                        <div class="stat-label">Pending Amount</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="coordDemandAmount">₹0</div>
+                        <div class="stat-label">Total Demanded</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="coordReturnPendingAmount">₹0</div>
+                        <div class="stat-label">Pending Return</div>
                     </div>
                     <div class="stat-card" style="grid-column: 1 / -1;">
                         <div class="stat-number" id="coordNetBalance">₹0</div>
-                        <div class="stat-label" id="coordNetBalanceLabel">Net Balance (What You Currently Hold)</div>
+                        <div class="stat-label" id="coordNetBalanceLabel">Net Balance (Coordinator Portion Only)</div>
                     </div>
                 </div>
 
@@ -1145,22 +1157,17 @@
                     <h3 style="color: #1a56db; font-size: 15px; margin-bottom: 14px; font-weight: 700;">➕ Add New Entry</h3>
 
                     <div class="form-group">
-                        <label>What Happened? <span class="required">*</span></label>
-                        <div class="radio-group" style="flex-direction: column; gap: 8px; align-items: flex-start;">
+                        <label>Transaction Type <span class="required">*</span></label>
+                        <div class="radio-group">
                             <div class="radio-option">
                                 <input type="radio" id="coordTypeReceived" name="coordType" value="received" checked onchange="toggleCoordType()">
-                                <label for="coordTypeReceived">🟢 Coordinator Gave Me Money</label>
+                                <label for="coordTypeReceived">🟢 Coordinator Gave Money</label>
                             </div>
                             <div class="radio-option">
-                                <input type="radio" id="coordTypeHanded" name="coordType" value="handedToTejas" onchange="toggleCoordType()">
-                                <label for="coordTypeHanded">🔵 I Handed Money to Tejas Ghodekar</label>
-                            </div>
-                            <div class="radio-option">
-                                <input type="radio" id="coordTypeReturned" name="coordType" value="returnedToCoordinator" onchange="toggleCoordType()">
-                                <label for="coordTypeReturned">🔴 I Returned Money to Coordinator</label>
+                                <input type="radio" id="coordTypeDemand" name="coordType" value="demand" onchange="toggleCoordType()">
+                                <label for="coordTypeDemand">🔴 Coordinator Demanded Money</label>
                             </div>
                         </div>
-                        <div class="helper-text" style="margin-top: 6px;">💡 Only add an entry once the money has actually moved. If you're just holding money she gave you, don't add anything else until you actually hand it over or return it.</div>
                     </div>
 
                     <div class="form-group">
@@ -1188,8 +1195,27 @@
                     </div>
 
                     <div class="form-group">
-                        <label id="coordPurposeLabel">Purpose / Note</label>
+                        <label id="coordPurposeLabel">Purpose / Source of Money</label>
                         <input type="text" id="coordPurpose" placeholder="e.g., Library fees collected, deposit refund, etc.">
+                    </div>
+
+                    <div class="form-group">
+                        <label id="coordStatusLabel">Given to Tejas Ghodekar? <span class="required">*</span></label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="coordGivenYes" name="coordGiven" value="Yes">
+                                <label for="coordGivenYes" id="coordGivenYesLabel">Yes – Given</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="coordGivenNo" name="coordGiven" value="Not Yet" checked>
+                                <label for="coordGivenNo" id="coordGivenNoLabel">Not Yet</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label id="coordGivenDateLabel">Date Given to Tejas Ghodekar</label>
+                        <input type="date" id="coordGivenDate">
                     </div>
 
                     <div class="form-group">
@@ -1201,18 +1227,25 @@
                     <button onclick="resetCoordForm()" class="btn btn-secondary">🔄 Clear</button>
                 </div>
 
+                <!-- Coordinator-wise Breakdown -->
+                <div id="coordBreakdownWrapper" style="margin-bottom: 20px;">
+                    <h3 style="color: #4a5568; font-size: 13px; font-weight: 700; margin-bottom: 12px;">👥 By Coordinator</h3>
+                    <div id="coordBreakdownList"></div>
+                </div>
+
                 <!-- Records List -->
                 <h3 style="color: #4a5568; font-size: 13px; font-weight: 700; margin-bottom: 12px;">📋 All Records</h3>
                 <div class="filter-buttons">
                     <button class="filter-btn active" id="coordFilterAll" onclick="filterCoordRecords('all', this)">All</button>
                     <button class="filter-btn" onclick="filterCoordRecords('received', this)">Received</button>
-                    <button class="filter-btn" onclick="filterCoordRecords('handedToTejas', this)">Handed to Tejas</button>
-                    <button class="filter-btn" onclick="filterCoordRecords('returnedToCoordinator', this)">Returned</button>
+                    <button class="filter-btn" onclick="filterCoordRecords('demand', this)">Demanded</button>
+                    <button class="filter-btn" onclick="filterCoordRecords('pending', this)">Pending</button>
+                    <button class="filter-btn" onclick="filterCoordRecords('settled', this)">Settled</button>
                 </div>
                 <div id="coordRecordsList"></div>
 
                 <!-- PDF Statement Download -->
-                <div style="background: #f8f9fc; border-radius: 12px; padding: 18px; margin-top: 24px; border: 1px solid #e2e6f0;">
+                <div id="coordPdfDownloadPanel" style="background: #f8f9fc; border-radius: 12px; padding: 18px; margin-top: 24px; border: 1px solid #e2e6f0;">
                     <h3 style="color: #1a56db; font-size: 15px; margin-bottom: 12px; font-weight: 700;">📄 Download Statement</h3>
                     <div class="form-group">
                         <label>Statement Range</label>
@@ -1222,6 +1255,7 @@
                         </select>
                     </div>
                     <button class="export-btn" onclick="downloadCoordPDF()" style="background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%); box-shadow: 0 3px 10px rgba(229,62,62,0.3);">📄 Download PDF Statement</button>
+                    <button class="export-btn" onclick="exportCoordToCSV()" style="background: linear-gradient(135deg, #00b894 0%, #00d4aa 100%); box-shadow: 0 3px 10px rgba(0,212,170,0.2); margin-top: 8px;">📥 Export to CSV</button>
                 </div>
             </div>
 
@@ -1260,7 +1294,9 @@
                         <button type="button" onclick="setStatementQuickRange('all')" class="stmt-quick-btn" id="stmtQuickAll" style="flex: 1; min-width: 70px; padding: 8px; border: 1px solid #c8d0e0; border-radius: 8px; background: #1a56db; color: #fff; font-size: 11.5px; font-weight: 700; cursor: pointer;">All Time</button>
                         <button type="button" onclick="setStatementQuickRange('thismonth')" class="stmt-quick-btn" id="stmtQuickThis" style="flex: 1; min-width: 70px; padding: 8px; border: 1px solid #c8d0e0; border-radius: 8px; background: #fff; color: #4a5568; font-size: 11.5px; font-weight: 700; cursor: pointer;">This Month</button>
                         <button type="button" onclick="setStatementQuickRange('lastmonth')" class="stmt-quick-btn" id="stmtQuickLast" style="flex: 1; min-width: 70px; padding: 8px; border: 1px solid #c8d0e0; border-radius: 8px; background: #fff; color: #4a5568; font-size: 11.5px; font-weight: 700; cursor: pointer;">Last Month</button>
+                        <button type="button" onclick="setStatementQuickRange('thisyear')" class="stmt-quick-btn" id="stmtQuickYear" style="flex: 1; min-width: 70px; padding: 8px; border: 1px solid #c8d0e0; border-radius: 8px; background: #fff; color: #4a5568; font-size: 11.5px; font-weight: 700; cursor: pointer;">This Year</button>
                     </div>
+                    <p style="font-size: 10.5px; color: #a0aec0; margin-bottom: 4px;">"This Year" uses the Apr–Mar academic/financial year.</p>
 
                     <div style="display: flex; gap: 8px; margin-bottom: 10px;">
                         <div style="flex: 1;">
@@ -1387,8 +1423,8 @@
 
                 <!-- App Lock -->
                 <div style="background: #f8f9fc; border-radius: 12px; padding: 18px; margin-bottom: 20px; border: 1px solid #e2e6f0;">
-                    <h3 style="color: #1a56db; font-size: 14px; font-weight: 700; margin-bottom: 4px;">🔒 App Lock (Password)</h3>
-                    <p style="font-size: 12px; color: #718096; margin-bottom: 8px;">Require a password to open this app on this device. Leave blank and save to remove the lock.</p>
+                    <h3 style="color: #1a56db; font-size: 14px; font-weight: 700; margin-bottom: 4px;">🔒 Owner Login (Password)</h3>
+                    <p style="font-size: 12px; color: #718096; margin-bottom: 8px;">Your password — full access to everything. Require a password to open this app on this device. Leave blank and save to remove the lock.</p>
                     <p style="font-size: 12px; font-weight: 700; margin-bottom: 12px;" id="appLockCurrentStatus"></p>
                     <div style="display: flex; gap: 10px;">
                         <input type="password" id="settingAppPassword" placeholder="Set new password" style="flex: 1; padding: 11px 13px; border: 1px solid #c8d0e0; border-radius: 8px; font-size: 14px; background: white; color: #1a202c;">
@@ -1396,6 +1432,18 @@
                     </div>
                     <p style="font-size: 12px; color: #28a745; margin-top: 8px; font-weight: 600;" id="appPasswordStatus"></p>
                     <p style="font-size: 11px; color: #a0aec0; margin-top: 8px;">⚠️ This is a basic device-level lock, not encryption. Don't forget the password — there's no recovery option, you'd need to clear browser data to reset.</p>
+                </div>
+
+                <!-- Coordinator Login -->
+                <div style="background: #f8f9fc; border-radius: 12px; padding: 18px; margin-bottom: 20px; border: 1px solid #e2e6f0;">
+                    <h3 style="color: #1a56db; font-size: 14px; font-weight: 700; margin-bottom: 4px;">🤝 Coordinator Login</h3>
+                    <p style="font-size: 12px; color: #718096; margin-bottom: 8px;">A separate password for your coordinator. They can only add Coord→Owner entries — no access to student fees, Settings, Backup, or editing/deleting anything. Requires an Owner Password to be set first. Leave blank and save to disable coordinator login.</p>
+                    <p style="font-size: 12px; font-weight: 700; margin-bottom: 12px;" id="coordLoginCurrentStatus"></p>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="password" id="settingCoordPassword" placeholder="Set coordinator password" style="flex: 1; padding: 11px 13px; border: 1px solid #c8d0e0; border-radius: 8px; font-size: 14px; background: white; color: #1a202c;">
+                        <button onclick="saveCoordPassword()" style="padding: 11px 16px; background: linear-gradient(135deg,#f0b429,#c8962a); color: #0d0f14; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; white-space: nowrap;">💾 Save</button>
+                    </div>
+                    <p style="font-size: 12px; color: #28a745; margin-top: 8px; font-weight: 600;" id="coordPasswordStatus"></p>
                 </div>
 
                 <!-- Fingerprint Unlock -->
@@ -1666,7 +1714,9 @@
             document.getElementById('lockError').textContent = '';
             const verified = await verifyBiometricUnlock();
             if (verified) {
+                currentUserRole = 'owner';
                 document.getElementById('appLockOverlay').style.display = 'none';
+                applyRoleRestrictions();
                 showStartupSummaryPopup();
             } else {
                 document.getElementById('lockError').textContent = '❌ Fingerprint not recognized. Try again or use password.';
@@ -1740,6 +1790,21 @@
                 statusEl.style.color = hasPassword ? '#0ea770' : '#a0aec0';
             }
 
+            const hasCoordPassword = !!localStorage.getItem('labFeesCoordPassword');
+            const coordStatusEl = document.getElementById('coordLoginCurrentStatus');
+            const coordPwdInput = document.getElementById('settingCoordPassword');
+            if (coordStatusEl) {
+                if (!hasPassword) {
+                    coordStatusEl.textContent = '⚪ Set an Owner Password first to enable coordinator login';
+                    coordStatusEl.style.color = '#a0aec0';
+                    if (coordPwdInput) { coordPwdInput.disabled = true; coordPwdInput.style.opacity = '0.5'; }
+                } else {
+                    coordStatusEl.textContent = hasCoordPassword ? '🟢 Coordinator login is ON' : '⚪ Coordinator login is OFF';
+                    coordStatusEl.style.color = hasCoordPassword ? '#0ea770' : '#a0aec0';
+                    if (coordPwdInput) { coordPwdInput.disabled = false; coordPwdInput.style.opacity = '1'; }
+                }
+            }
+
             const hasBiometric = !!localStorage.getItem('labFeesBiometricCredId');
             const bioStatusEl = document.getElementById('biometricStatus');
             const setupBtn = document.getElementById('biometricSetupBtn');
@@ -1768,6 +1833,7 @@
             const statusEl = document.getElementById('appPasswordStatus');
             if (val.trim() === '') {
                 localStorage.removeItem('labFeesAppPassword');
+                localStorage.removeItem('labFeesCoordPassword'); // coordinator login requires an owner password
                 statusEl.textContent = '✅ App lock removed.';
             } else {
                 localStorage.setItem('labFeesAppPassword', val);
@@ -1778,12 +1844,63 @@
             setTimeout(() => { statusEl.textContent = ''; }, 4000);
         }
 
+        function saveCoordPassword() {
+            if (!localStorage.getItem('labFeesAppPassword')) {
+                alert('❌ Set an Owner Password first — coordinator login needs it to tell the two roles apart.');
+                return;
+            }
+            const val = document.getElementById('settingCoordPassword').value;
+            const statusEl = document.getElementById('coordPasswordStatus');
+            if (val.trim() === '') {
+                localStorage.removeItem('labFeesCoordPassword');
+                statusEl.textContent = '✅ Coordinator login disabled.';
+            } else if (val === localStorage.getItem('labFeesAppPassword')) {
+                alert('❌ Coordinator password must be different from the Owner password.');
+                return;
+            } else {
+                localStorage.setItem('labFeesCoordPassword', val);
+                statusEl.textContent = '✅ Coordinator login set! They can now log in with this password.';
+            }
+            document.getElementById('settingCoordPassword').value = '';
+            loadSettingsPage();
+            setTimeout(() => { statusEl.textContent = ''; }, 4000);
+        }
+
+        let currentUserRole = 'owner'; // default; narrowed to 'coordinator' only after a coordinator login
+        let pendingLoginRole = 'owner';
+
+        function selectLoginRole(role) {
+            pendingLoginRole = role;
+            const ownerBtn = document.getElementById('roleSelectOwner');
+            const coordBtn = document.getElementById('roleSelectCoord');
+            const fpBtn = document.getElementById('fingerprintRetryBtn');
+            const subtitle = document.getElementById('lockSubtitle');
+            const hasBiometric = !!localStorage.getItem('labFeesBiometricCredId') && isBiometricAvailable();
+
+            if (role === 'owner') {
+                ownerBtn.style.background = '#1a56db'; ownerBtn.style.color = '#fff';
+                coordBtn.style.background = '#1a1d29'; coordBtn.style.color = '#8b90a8';
+                if (fpBtn) fpBtn.style.display = hasBiometric ? 'inline-block' : 'none';
+                subtitle.textContent = hasBiometric ? 'Use fingerprint or enter password' : 'Enter Owner password';
+            } else {
+                coordBtn.style.background = '#1a56db'; coordBtn.style.color = '#fff';
+                ownerBtn.style.background = '#1a1d29'; ownerBtn.style.color = '#8b90a8';
+                if (fpBtn) fpBtn.style.display = 'none'; // fingerprint belongs to the owner's device only
+                subtitle.textContent = 'Enter Coordinator password';
+            }
+            document.getElementById('appLockInput').value = '';
+            document.getElementById('lockError').textContent = '';
+            document.getElementById('appLockInput').focus();
+        }
+
         async function checkAppLock() {
             const pwd = localStorage.getItem('labFeesAppPassword');
+            const coordPwd = localStorage.getItem('labFeesCoordPassword');
             const credId = localStorage.getItem('labFeesBiometricCredId');
             const hasBiometric = !!credId && isBiometricAvailable();
 
             if (!pwd && !hasBiometric) {
+                currentUserRole = 'owner';
                 showStartupSummaryPopup();
                 return;
             }
@@ -1792,28 +1909,35 @@
             const fpBtn = document.getElementById('fingerprintRetryBtn');
             const input = document.getElementById('appLockInput');
             const subtitle = document.getElementById('lockSubtitle');
+            const roleSelector = document.getElementById('loginRoleSelector');
             overlay.style.display = 'flex';
 
-            if (hasBiometric) {
-                fpBtn.style.display = 'inline-block';
-                if (!pwd) {
-                    input.style.display = 'none';
-                    subtitle.textContent = 'Use your fingerprint to continue';
+            if (coordPwd) {
+                roleSelector.style.display = 'flex';
+                selectLoginRole('owner');
+            } else {
+                roleSelector.style.display = 'none';
+                pendingLoginRole = 'owner';
+                if (hasBiometric) {
+                    fpBtn.style.display = 'inline-block';
+                    input.style.display = pwd ? 'block' : 'none';
+                    subtitle.textContent = pwd ? 'Use fingerprint or enter password' : 'Use your fingerprint to continue';
                 } else {
+                    fpBtn.style.display = 'none';
                     input.style.display = 'block';
-                    subtitle.textContent = 'Use fingerprint or enter password';
+                    subtitle.textContent = 'Enter password to continue';
                 }
-                // Auto-prompt biometric right away
+            }
+
+            if (pendingLoginRole === 'owner' && hasBiometric) {
                 const verified = await verifyBiometricUnlock();
                 if (verified) {
+                    currentUserRole = 'owner';
                     overlay.style.display = 'none';
+                    applyRoleRestrictions();
                     showStartupSummaryPopup();
                     return;
                 }
-            } else {
-                fpBtn.style.display = 'none';
-                input.style.display = 'block';
-                subtitle.textContent = 'Enter password to continue';
             }
 
             input.focus();
@@ -1824,16 +1948,72 @@
 
         function tryUnlockApp() {
             const pwd = localStorage.getItem('labFeesAppPassword');
+            const coordPwd = localStorage.getItem('labFeesCoordPassword');
             const input = document.getElementById('appLockInput');
+
+            if (pendingLoginRole === 'coordinator') {
+                if (input.value === coordPwd) {
+                    currentUserRole = 'coordinator';
+                    document.getElementById('appLockOverlay').style.display = 'none';
+                    applyRoleRestrictions();
+                    showTab('coordinator');
+                } else {
+                    document.getElementById('lockError').textContent = '❌ Incorrect password';
+                    input.value = '';
+                    input.focus();
+                }
+                return;
+            }
+
             if (!pwd) return; // password lock not set, only biometric applies
             if (input.value === pwd) {
+                currentUserRole = 'owner';
                 document.getElementById('appLockOverlay').style.display = 'none';
+                applyRoleRestrictions();
                 showStartupSummaryPopup();
             } else {
                 document.getElementById('lockError').textContent = '❌ Incorrect password';
                 input.value = '';
                 input.focus();
             }
+        }
+
+        function applyRoleRestrictions() {
+            const isCoord = currentUserRole === 'coordinator';
+            const restrictedTabs = ['add', 'togive', 'all', 'pending', 'settings'];
+            const tabIndex = { add: 0, togive: 1, coordinator: 2, all: 3, pending: 4, settings: 5 };
+
+            restrictedTabs.forEach(t => {
+                const btn = document.querySelectorAll('.tab')[tabIndex[t]];
+                if (btn) btn.style.display = isCoord ? 'none' : '';
+            });
+
+            const headerActions = document.querySelector('.header-actions');
+            if (headerActions) headerActions.style.display = isCoord ? 'none' : '';
+
+            const searchBar = document.getElementById('globalSearchBar');
+            if (searchBar) searchBar.style.display = isCoord ? 'none' : '';
+
+            const grandTotalCard = document.getElementById('grandTotalToGiveCoord');
+            if (grandTotalCard) grandTotalCard.style.display = isCoord ? 'none' : '';
+
+            const pdfPanel = document.getElementById('coordPdfDownloadPanel');
+            if (pdfPanel) pdfPanel.style.display = isCoord ? 'none' : '';
+
+            if (isCoord) {
+                const banner = document.createElement('div');
+                banner.id = 'coordRoleBanner';
+                banner.className = 'alert alert-warning';
+                banner.style.marginBottom = '16px';
+                banner.textContent = '🤝 Logged in as Coordinator — you can only add new entries here. Editing, deleting, and other tabs are owner-only.';
+                const section = document.getElementById('coordinator-section');
+                if (section && !document.getElementById('coordRoleBanner')) section.insertBefore(banner, section.firstChild.nextSibling);
+            } else {
+                const existingBanner = document.getElementById('coordRoleBanner');
+                if (existingBanner) existingBanner.remove();
+            }
+
+            displayCoordRecords();
         }
 
         // ─── INITIALIZE ─────────────────────────────────────────────────────
@@ -1906,6 +2086,10 @@
         }
 
         function showTab(tab) {
+            if (currentUserRole === 'coordinator' && tab !== 'coordinator') {
+                tab = 'coordinator'; // coordinators only ever see this tab
+            }
+
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 
@@ -2284,12 +2468,13 @@
                 (r.feesStatus === 'Paid' || r.feesStatus === 'Partial')
             ).reduce((sum, r) => sum + receivedAmt(r), 0);
 
-            // Portion 2: Coordinator net (received minus handed to Tejas minus returned to coordinator)
+            // Portion 2: Coordinator handover net (money she gave you, minus money she demanded back)
             const coordRecords = getCoordRecords();
-            const coordReceived = coordRecords.filter(r => r.type === 'received').reduce((s, r) => s + r.amount, 0);
-            const coordHanded = coordRecords.filter(r => r.type === 'handedToTejas').reduce((s, r) => s + r.amount, 0);
-            const coordReturned = coordRecords.filter(r => r.type === 'returnedToCoordinator').reduce((s, r) => s + r.amount, 0);
-            const coordNet = coordReceived - coordHanded - coordReturned;
+            const pendingHandover = coordRecords.filter(r => r.type === 'received' && r.settled === 'Not Yet')
+                .reduce((s, r) => s + r.amount, 0);
+            const pendingReturn = coordRecords.filter(r => r.type === 'demand' && r.settled === 'Not Yet')
+                .reduce((s, r) => s + r.amount, 0);
+            const coordNet = pendingHandover - pendingReturn;
             const coordContribution = coordNet > 0 ? coordNet : 0;
 
             const grandTotal = feesToGive + coordContribution;
@@ -2654,13 +2839,25 @@
             });
         }
 
-        function showUndoToast(message, undoCallback) {
+        function showUndoToast(message, undoCallback, infoOnly) {
             const existing = document.getElementById('undoToast');
             if (existing) existing.remove();
 
             const toast = document.createElement('div');
             toast.id = 'undoToast';
             toast.style.cssText = 'position: fixed; left: 12px; right: 12px; bottom: 12px; background: #1a1d29; color: #fff; border-radius: 12px; padding: 14px 16px; z-index: 4500; box-shadow: 0 10px 30px rgba(0,0,0,0.35); display: flex; align-items: center; gap: 10px;';
+
+            if (infoOnly) {
+                toast.innerHTML = `
+                    <div style="flex: 1; font-size: 12.5px; line-height: 1.4;">${message}</div>
+                    <button id="undoToastBtn" style="background: transparent; color: #a0aec0; border: none; font-size: 18px; cursor: pointer; padding: 0 4px;">✕</button>
+                `;
+                document.body.appendChild(toast);
+                document.getElementById('undoToastBtn').onclick = () => toast.remove();
+                setTimeout(() => { if (toast.parentElement) toast.remove(); }, 6000);
+                return;
+            }
+
             toast.innerHTML = `
                 <div style="flex: 1; font-size: 12.5px; line-height: 1.4;">🗑️ ${message}</div>
                 <button id="undoToastBtn" style="background: #1a56db; color: #fff; border: none; border-radius: 8px; padding: 9px 14px; font-weight: 700; font-size: 12.5px; white-space: nowrap; cursor: pointer;">Undo</button>
@@ -2711,6 +2908,39 @@
             const a = document.createElement('a');
             a.href = url;
             a.download = `Lab_Fees_Records_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        function exportCoordToCSV() {
+            const records = getCoordRecords();
+            if (records.length === 0) {
+                alert('No coordinator records to export!');
+                return;
+            }
+
+            const headers = ['Date', 'Coordinator', 'Type', 'Amount', 'Payment Mode', 'Purpose', 'Status', 'Settled Date', 'Remark'];
+
+            const csvContent = [
+                headers.join(','),
+                ...records.map(r => [
+                    r.date,
+                    `"${r.coordName}"`,
+                    r.type === 'demand' ? 'Demand' : 'Received',
+                    r.amount,
+                    r.payMode,
+                    `"${r.purpose || ''}"`,
+                    r.settled === 'Yes' ? (r.type === 'demand' ? 'Returned' : 'Given') : 'Pending',
+                    r.settledDate || '',
+                    `"${r.remark || ''}"`
+                ].join(','))
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Coordinator_Records_${new Date().toISOString().split('T')[0]}.csv`;
             a.click();
             window.URL.revokeObjectURL(url);
         }
@@ -3065,38 +3295,64 @@ Required columns (in order):
         function getCoordRecords() {
             const data = localStorage.getItem('coordHandoverRecords');
             const records = data ? JSON.parse(data) : [];
-            // Migrate legacy records (received/demand + settled flag) to the new simplified model.
-            // Each legacy "received" entry stays as a received credit (regardless of old settled flag,
-            // since we can no longer tell if that money went to Tejas or back to the coordinator - that
-            // ambiguity was exactly the bug). Legacy "demand" entries that were marked settled become a
-            // clean "returned to coordinator" entry. Unsettled demands are dropped since nothing actually
-            // happened yet in the new completed-events-only model.
+            // Migrate any records from the newer 3-type model (received/handedToTejas/returnedToCoordinator)
+            // back into the received/demand + settled model. A "handedToTejas" or "returnedToCoordinator"
+            // entry is matched against an existing unsettled received/demand entry (same coordinator +
+            // amount) and marks THAT one settled, so money already accounted for isn't double-counted.
+            // Only if no match exists does it fall back to a synthetic already-settled entry.
             let migrated = false;
             const newRecords = [];
             records.forEach(r => {
-                if (r.type === 'received' || r.type === 'handedToTejas' || r.type === 'returnedToCoordinator') {
+                if (r.type === 'received' || r.type === 'demand') {
+                    if (r.settled === undefined) {
+                        r.settled = r.givenToTejas || 'Not Yet';
+                        r.settledDate = r.givenDate || '';
+                        migrated = true;
+                    }
                     newRecords.push(r);
-                } else if (r.type === 'demand') {
+                } else if (r.type === 'handedToTejas') {
                     migrated = true;
-                    if (r.settled === 'Yes') {
+                    const match = newRecords.find(nr => nr.type === 'received' && nr.coordName === r.coordName && nr.amount === r.amount && nr.settled === 'Not Yet');
+                    if (match) {
+                        match.settled = 'Yes';
+                        match.settledDate = r.date;
+                    } else {
                         newRecords.push({
-                            id: r.id, type: 'returnedToCoordinator', date: r.settledDate || r.date,
-                            coordName: r.coordName, amount: r.amount, payMode: r.payMode,
-                            purpose: r.purpose, remark: r.remark
+                            id: r.id, type: 'received', date: r.date, coordName: r.coordName,
+                            amount: r.amount, payMode: r.payMode, purpose: r.purpose, remark: r.remark,
+                            settled: 'Yes', settledDate: r.date
                         });
                     }
-                    // unsettled demand: dropped, nothing actually moved yet
+                } else if (r.type === 'returnedToCoordinator') {
+                    migrated = true;
+                    const match = newRecords.find(nr => nr.type === 'demand' && nr.coordName === r.coordName && nr.amount === r.amount && nr.settled === 'Not Yet');
+                    if (match) {
+                        match.settled = 'Yes';
+                        match.settledDate = r.date;
+                    } else {
+                        newRecords.push({
+                            id: r.id, type: 'demand', date: r.date, coordName: r.coordName,
+                            amount: r.amount, payMode: r.payMode, purpose: r.purpose, remark: r.remark,
+                            settled: 'Yes', settledDate: r.date
+                        });
+                    }
                 } else if (!r.type) {
                     migrated = true;
                     newRecords.push({
                         id: r.id, type: 'received', date: r.date, coordName: r.coordName,
-                        amount: r.amount, payMode: r.payMode, purpose: r.purpose, remark: r.remark
+                        amount: r.amount, payMode: r.payMode, purpose: r.purpose, remark: r.remark,
+                        settled: 'Not Yet', settledDate: ''
                     });
                 } else {
                     newRecords.push(r);
                 }
             });
-            if (migrated) saveCoordRecords(newRecords);
+            if (migrated) {
+                saveCoordRecords(newRecords);
+                if (!sessionStorage.getItem('labFeesMigrationNoticeShown')) {
+                    window.__coordDataMigrated = true;
+                }
+            }
             return newRecords;
         }
 
@@ -3105,18 +3361,21 @@ Required columns (in order):
         }
 
         function toggleCoordType() {
-            const type = document.querySelector('input[name="coordType"]:checked').value;
-            const purposeLabel = document.getElementById('coordPurposeLabel');
-            const purposeInput = document.getElementById('coordPurpose');
-            if (type === 'received') {
-                purposeLabel.textContent = 'Purpose / Source of Money';
-                purposeInput.placeholder = 'e.g., Library fees collected, deposit refund, etc.';
-            } else if (type === 'handedToTejas') {
-                purposeLabel.textContent = 'Note';
-                purposeInput.placeholder = 'e.g., Handed over in cash at library';
+            const isDemand = document.getElementById('coordTypeDemand').checked;
+            if (isDemand) {
+                document.getElementById('coordPurposeLabel').textContent = 'Reason for Demand';
+                document.getElementById('coordPurpose').placeholder = 'e.g., advance to be returned, overpayment, etc.';
+                document.getElementById('coordStatusLabel').innerHTML = 'Returned to Coordinator? <span class="required">*</span>';
+                document.getElementById('coordGivenYesLabel').textContent = 'Yes – Returned';
+                document.getElementById('coordGivenNoLabel').textContent = 'Not Yet';
+                document.getElementById('coordGivenDateLabel').textContent = 'Date Returned to Coordinator';
             } else {
-                purposeLabel.textContent = 'Reason for Return';
-                purposeInput.placeholder = 'e.g., She asked for advance back';
+                document.getElementById('coordPurposeLabel').textContent = 'Purpose / Source of Money';
+                document.getElementById('coordPurpose').placeholder = 'e.g., Library fees collected, deposit refund, etc.';
+                document.getElementById('coordStatusLabel').innerHTML = 'Given to Tejas Ghodekar? <span class="required">*</span>';
+                document.getElementById('coordGivenYesLabel').textContent = 'Yes – Given';
+                document.getElementById('coordGivenNoLabel').textContent = 'Not Yet';
+                document.getElementById('coordGivenDateLabel').textContent = 'Date Given to Tejas Ghodekar';
             }
         }
 
@@ -3138,6 +3397,8 @@ Required columns (in order):
                 amount: parseFloat(amount),
                 payMode: document.getElementById('coordPayMode').value,
                 purpose: document.getElementById('coordPurpose').value.trim(),
+                settled: document.querySelector('input[name="coordGiven"]:checked').value,
+                settledDate: document.getElementById('coordGivenDate').value,
                 remark: document.getElementById('coordRemark').value.trim()
             };
 
@@ -3160,6 +3421,8 @@ Required columns (in order):
             document.getElementById('coordPayMode').value = 'Cash';
             document.getElementById('coordPurpose').value = '';
             document.getElementById('coordTypeReceived').checked = true;
+            document.getElementById('coordGivenNo').checked = true;
+            document.getElementById('coordGivenDate').value = '';
             document.getElementById('coordRemark').value = '';
             toggleCoordType();
         }
@@ -3173,74 +3436,136 @@ Required columns (in order):
             displayCoordRecords();
         }
 
+        function drawCoordBreakdown(records) {
+            const wrapper = document.getElementById('coordBreakdownWrapper');
+            const container = document.getElementById('coordBreakdownList');
+            if (!container) return;
+
+            const names = [...new Set(records.map(r => r.coordName).filter(Boolean))];
+
+            // Only worth showing once there's more than one coordinator - otherwise it just repeats the totals above
+            if (names.length < 2) {
+                wrapper.style.display = 'none';
+                return;
+            }
+            wrapper.style.display = 'block';
+
+            const rows = names.map(name => {
+                const theirs = records.filter(r => r.coordName === name);
+                const received = theirs.filter(r => r.type === 'received').reduce((s, r) => s + r.amount, 0);
+                const pendingHandover = theirs.filter(r => r.type === 'received' && r.settled === 'Not Yet').reduce((s, r) => s + r.amount, 0);
+                const pendingReturn = theirs.filter(r => r.type === 'demand' && r.settled === 'Not Yet').reduce((s, r) => s + r.amount, 0);
+                const net = pendingHandover - pendingReturn;
+                const lastDate = theirs.reduce((latest, r) => (!latest || r.date > latest) ? r.date : latest, null);
+                const daysSince = lastDate ? Math.floor((new Date().setHours(0,0,0,0) - new Date(lastDate).setHours(0,0,0,0)) / 86400000) : null;
+                return { name, received, net, entries: theirs.length, daysSince };
+            }).sort((a, b) => b.received - a.received);
+
+            container.innerHTML = rows.map(r => {
+                const stale = r.daysSince !== null && r.daysSince > 14;
+                const dateLabel = r.daysSince === null ? '' : r.daysSince === 0 ? 'today' : r.daysSince === 1 ? '1 day ago' : `${r.daysSince} days ago`;
+                return `
+                <div style="background: #f8f9fc; border: 1px solid #e2e6f0; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 13.5px; color: #1a202c;">👤 ${maskCoordName(r.name)}</div>
+                        <div style="font-size: 11px; color: #718096;">${r.entries} entr${r.entries === 1 ? 'y' : 'ies'} · ₹${r.received.toFixed(0)} received total</div>
+                        <div style="font-size: 10.5px; color: ${stale ? '#d97706' : '#a0aec0'}; margin-top: 2px;">${stale ? '⏰ ' : ''}Last update: ${dateLabel}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: 800; font-size: 15px; color: ${r.net > 0 ? '#0ea770' : r.net < 0 ? '#e53e3e' : '#4a5568'};">₹${Math.abs(r.net).toFixed(0)}</div>
+                        <div style="font-size: 10.5px; color: #a0aec0;">${r.net > 0 ? 'pending to give' : r.net < 0 ? 'you owe them' : 'settled'}</div>
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+
         function displayCoordRecords() {
             const records = getCoordRecords();
 
-            const totalReceived = records.filter(r => r.type === 'received').reduce((s, r) => s + r.amount, 0);
-            const totalHanded = records.filter(r => r.type === 'handedToTejas').reduce((s, r) => s + r.amount, 0);
-            const totalReturned = records.filter(r => r.type === 'returnedToCoordinator').reduce((s, r) => s + r.amount, 0);
+            const receivedRecords = records.filter(r => r.type === 'received');
+            const demandRecords = records.filter(r => r.type === 'demand');
 
-            const netBalance = totalReceived - totalHanded - totalReturned;
+            const totalReceived = receivedRecords.reduce((s, r) => s + r.amount, 0);
+            const pendingHandoverRecords = receivedRecords.filter(r => r.settled === 'Not Yet');
+            const pendingHandoverAmount = pendingHandoverRecords.reduce((s, r) => s + r.amount, 0);
+
+            const totalDemanded = demandRecords.reduce((s, r) => s + r.amount, 0);
+            const pendingReturnAmount = demandRecords.filter(r => r.settled === 'Not Yet').reduce((s, r) => s + r.amount, 0);
+
+            const netBalance = pendingHandoverAmount - pendingReturnAmount;
 
             document.getElementById('coordTotalEntries').textContent = records.length;
             document.getElementById('coordTotalAmount').textContent = '₹' + totalReceived.toFixed(0);
-            document.getElementById('coordHandedAmount').textContent = '₹' + totalHanded.toFixed(0);
-            document.getElementById('coordReturnedAmount').textContent = '₹' + totalReturned.toFixed(0);
+            document.getElementById('coordPendingEntries').textContent = pendingHandoverRecords.length;
+            document.getElementById('coordPendingAmount').textContent = '₹' + pendingHandoverAmount.toFixed(0);
+            document.getElementById('coordDemandAmount').textContent = '₹' + totalDemanded.toFixed(0);
+            document.getElementById('coordReturnPendingAmount').textContent = '₹' + pendingReturnAmount.toFixed(0);
 
             const netEl = document.getElementById('coordNetBalance');
             const netLabelEl = document.getElementById('coordNetBalanceLabel');
             if (netBalance > 0) {
                 netEl.textContent = '₹' + netBalance.toFixed(0);
                 netEl.style.color = 'var(--teal)';
-                netLabelEl.textContent = 'Net Balance — You Currently Hold (Owed to Tejas)';
+                netLabelEl.textContent = 'Coordinator Portion — You Hold (Owed to Tejas)';
             } else if (netBalance < 0) {
                 netEl.textContent = '₹' + Math.abs(netBalance).toFixed(0);
                 netEl.style.color = 'var(--red)';
-                netLabelEl.textContent = '⚠️ Negative — Check your entries, you can\'t hand out more than received';
+                netLabelEl.textContent = 'Coordinator Portion — You Owe Coordinator';
             } else {
                 netEl.textContent = '₹0';
                 netEl.style.color = 'var(--text)';
-                netLabelEl.textContent = 'Net Balance — Settled';
+                netLabelEl.textContent = 'Coordinator Portion — Settled';
             }
+
+            drawCoordBreakdown(records);
 
             updateGrandTotal();
 
             const container = document.getElementById('coordRecordsList');
 
             let filtered = [...records];
-            if (currentCoordFilter !== 'all') filtered = records.filter(r => r.type === currentCoordFilter);
+            if (currentCoordFilter === 'pending') filtered = records.filter(r => r.settled === 'Not Yet');
+            else if (currentCoordFilter === 'settled') filtered = records.filter(r => r.settled === 'Yes');
+            else if (currentCoordFilter === 'received') filtered = records.filter(r => r.type === 'received');
+            else if (currentCoordFilter === 'demand') filtered = records.filter(r => r.type === 'demand');
 
             if (filtered.length === 0) {
                 container.innerHTML = `<div class="no-records"><div class="no-records-icon">📋</div><p>No records found</p></div>`;
                 return;
             }
 
-            const typeMeta = {
-                received: { badge: 'badge-received', label: '🟢 Received', color: '#0ea770' },
-                handedToTejas: { badge: 'badge-given', label: '🔵 Handed to Tejas', color: '#1a56db' },
-                returnedToCoordinator: { badge: 'badge-demand', label: '🔴 Returned to Coordinator', color: '#e53e3e' }
-            };
-
             container.innerHTML = filtered.slice().reverse().map(r => {
-                const meta = typeMeta[r.type] || typeMeta.received;
+                const isDemand = r.type === 'demand';
+                const statusText = r.settled === 'Yes' ? (isDemand ? '✅ Returned' : '✅ Given') : (isDemand ? '⏳ To Return' : '⏳ Pending');
+                const settledLabel = isDemand ? 'Returned On' : 'Given On';
+                const actionLabel = isDemand ? '✓ Mark Returned' : '✓ Mark Given';
+                const textBlob = ((r.purpose || '') + ' ' + (r.remark || '')).toLowerCase();
+                const looksLikeRefund = !isDemand && /refund|returned|return to|given back/.test(textBlob);
                 return `
-                <div class="record-card" style="border-left-color: ${meta.color};">
+                <div class="record-card" style="border-left-color: ${r.settled === "Yes" ? "#0ea770" : (isDemand ? "#e53e3e" : "#f59e0b")};">
+                    ${looksLikeRefund ? `<div class="alert alert-warning" style="margin-bottom:10px; font-size:12px;">⚠️ This is marked "Received" but the note mentions a refund/return. If this money actually went BACK to the coordinator, edit it and change Type to "🔴 Coordinator Demanded Money" — otherwise it won't be subtracted from your total.</div>` : ''}
                     <div class="record-header">
                         <div class="record-name">👤 ${maskCoordName(r.coordName)}</div>
                         <div>
-                            <span class="badge ${meta.badge}">${meta.label}</span>
+                            <span class="badge ${isDemand ? 'badge-demand' : 'badge-received'}">${isDemand ? '🔴 Demand' : '🟢 Received'}</span>
+                            <span class="badge ${r.settled === 'Yes' ? 'badge-given' : 'badge-not-given'}">${statusText}</span>
                         </div>
                     </div>
                     <div class="record-details">
                         <div class="record-detail-row"><strong>Date:</strong> ${formatDate(r.date)}</div>
                         <div class="record-detail-row"><strong>Amount:</strong> ₹${r.amount.toFixed(0)}</div>
                         <div class="record-detail-row"><strong>Mode:</strong> ${r.payMode}</div>
-                        ${r.purpose ? `<div class="record-detail-row"><strong>Note:</strong> ${r.purpose}</div>` : ''}
+                        ${r.purpose ? `<div class="record-detail-row"><strong>${isDemand ? 'Reason' : 'Purpose'}:</strong> ${r.purpose}</div>` : ''}
+                        ${r.settledDate ? `<div class="record-detail-row"><strong>${settledLabel}:</strong> ${formatDate(r.settledDate)}</div>` : ''}
                         ${r.remark ? `<div class="record-detail-row"><strong>Remark:</strong> ${r.remark}</div>` : ''}
                     </div>
                     <div class="record-actions">
+                        ${(r.settled !== 'Yes') ? `<button class="btn btn-primary btn-small" onclick="markCoordSettled(${r.id})">${actionLabel}</button>` : ''}
+                        ${currentUserRole === 'owner' ? `
                         <button class="btn btn-secondary btn-small" onclick="editCoordRecord(${r.id})">✏️ Edit</button>
                         <button class="btn btn-secondary btn-small" onclick="deleteCoordRecord(${r.id})">🗑️ Delete</button>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -3268,12 +3593,12 @@ Required columns (in order):
 
                     <form id="editCoordForm">
                         <div style="margin-bottom: 16px;">
-                            <label style="${labelStyle}">What Happened?</label>
+                            <label style="${labelStyle}">Transaction Type</label>
                             <select id="edit_coord_type" style="${inputStyle}" required>
-                                <option value="received" ${record.type === 'received' ? 'selected' : ''}>🟢 Coordinator Gave Me Money</option>
-                                <option value="handedToTejas" ${record.type === 'handedToTejas' ? 'selected' : ''}>🔵 I Handed Money to Tejas Ghodekar</option>
-                                <option value="returnedToCoordinator" ${record.type === 'returnedToCoordinator' ? 'selected' : ''}>🔴 I Returned Money to Coordinator</option>
+                                <option value="received" ${record.type === 'received' ? 'selected' : ''}>🟢 Coordinator Gave Money (Received)</option>
+                                <option value="demand" ${record.type === 'demand' ? 'selected' : ''}>🔴 Coordinator Demanded Money (Demand/Return)</option>
                             </select>
+                            <div style="font-size:11px; color:#8b90a8; margin-top:4px;">If she asked for money back, this must be set to "Demand" — otherwise it won't be subtracted from your total.</div>
                         </div>
 
                         <div style="margin-bottom: 16px;">
@@ -3301,8 +3626,21 @@ Required columns (in order):
                         </div>
 
                         <div style="margin-bottom: 16px;">
-                            <label style="${labelStyle}">Note</label>
+                            <label style="${labelStyle}">Purpose / Reason</label>
                             <input type="text" id="edit_coord_purpose" value="${record.purpose || ''}" style="${inputStyle}">
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="${labelStyle}">Status</label>
+                            <select id="edit_coord_settled" style="${inputStyle}" required>
+                                <option value="Not Yet" ${record.settled === 'Not Yet' ? 'selected' : ''}>Not Yet</option>
+                                <option value="Yes" ${record.settled === 'Yes' ? 'selected' : ''}>Yes — Done</option>
+                            </select>
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="${labelStyle}">Settled Date</label>
+                            <input type="date" id="edit_coord_settledDate" value="${record.settledDate || ''}" style="${inputStyle}">
                         </div>
 
                         <div style="margin-bottom: 16px;">
@@ -3327,6 +3665,8 @@ Required columns (in order):
                 record.amount = parseFloat(document.getElementById('edit_coord_amount').value);
                 record.payMode = document.getElementById('edit_coord_payMode').value;
                 record.purpose = document.getElementById('edit_coord_purpose').value.trim();
+                record.settled = document.getElementById('edit_coord_settled').value;
+                record.settledDate = document.getElementById('edit_coord_settledDate').value;
                 record.remark = document.getElementById('edit_coord_remark').value.trim();
 
                 saveCoordRecords(records);
@@ -3334,6 +3674,23 @@ Required columns (in order):
                 displayCoordRecords();
                 alert('✅ Entry updated!');
             });
+        }
+
+        function markCoordSettled(id) {
+            const records = getCoordRecords();
+            const record = records.find(r => r.id === id);
+            if (!record) return;
+            const isDemand = record.type === 'demand';
+            const confirmMsg = isDemand
+                ? `Mark ₹${record.amount} to ${record.coordName} as returned?`
+                : `Mark ₹${record.amount} from ${record.coordName} as given to Tejas Ghodekar?`;
+            if (confirm(confirmMsg)) {
+                record.settled = 'Yes';
+                record.settledDate = new Date().toISOString().split('T')[0];
+                saveCoordRecords(records);
+                displayCoordRecords();
+                alert(isDemand ? '✅ Marked as returned to coordinator!' : '✅ Marked as given to Tejas Ghodekar!');
+            }
         }
 
         function deleteCoordRecord(id) {
@@ -3387,10 +3744,13 @@ Required columns (in order):
             doc.text(`Generated: ${formatDate(new Date().toISOString().split('T')[0])}`, pageWidth / 2, y, { align: 'center' });
             y += 10;
 
-            const totalReceived = filtered.filter(r => r.type === 'received').reduce((s, r) => s + r.amount, 0);
-            const totalHanded = filtered.filter(r => r.type === 'handedToTejas').reduce((s, r) => s + r.amount, 0);
-            const totalReturned = filtered.filter(r => r.type === 'returnedToCoordinator').reduce((s, r) => s + r.amount, 0);
-            const netBalance = totalReceived - totalHanded - totalReturned;
+            const receivedRecords = filtered.filter(r => r.type === 'received');
+            const demandRecords = filtered.filter(r => r.type === 'demand');
+            const totalReceived = receivedRecords.reduce((s, r) => s + r.amount, 0);
+            const pendingHandover = receivedRecords.filter(r => r.settled === 'Not Yet').reduce((s, r) => s + r.amount, 0);
+            const totalDemanded = demandRecords.reduce((s, r) => s + r.amount, 0);
+            const pendingReturn = demandRecords.filter(r => r.settled === 'Not Yet').reduce((s, r) => s + r.amount, 0);
+            const netBalance = pendingHandover - pendingReturn;
 
             doc.setFontSize(11);
             doc.setFont(undefined, 'bold');
@@ -3405,11 +3765,10 @@ Required columns (in order):
             const grandTotal = feesToGive + (netBalance > 0 ? netBalance : 0);
 
             const summaryLines = [
-                `Total Received from Coordinator: Rs ${totalReceived.toFixed(0)}`,
-                `Total Handed to Tejas Ghodekar: Rs ${totalHanded.toFixed(0)}`,
-                `Total Returned to Coordinator: Rs ${totalReturned.toFixed(0)}`,
+                `Total Received from Coordinator: Rs ${totalReceived.toFixed(0)}  (Pending Handover: Rs ${pendingHandover.toFixed(0)})`,
+                `Total Demanded by Coordinator: Rs ${totalDemanded.toFixed(0)}  (Pending Return: Rs ${pendingReturn.toFixed(0)})`,
                 netBalance > 0 ? `Coordinator Portion: You are holding Rs ${netBalance.toFixed(0)} to give Tejas Ghodekar`
-                    : netBalance < 0 ? `Coordinator Portion: Check entries - cannot be negative (Rs ${netBalance.toFixed(0)})`
+                    : netBalance < 0 ? `Coordinator Portion: You owe the coordinator Rs ${Math.abs(netBalance).toFixed(0)}`
                     : `Coordinator Portion: Settled (Rs 0)`,
                 `Admission/Renewal Fees Pending to Give: Rs ${feesToGive.toFixed(0)}`,
                 `GRAND TOTAL TO GIVE TEJAS GHODEKAR: Rs ${grandTotal.toFixed(0)}`
@@ -3422,8 +3781,8 @@ Required columns (in order):
             });
             y += 4;
 
-            const headers = ['Date', 'Coordinator', 'Type', 'Amount', 'Note'];
-            const colWidths = [20, 32, 34, 26, 60];
+            const headers = ['Date', 'Coordinator', 'Type', 'Amount', 'Status', 'Note'];
+            const colWidths = [20, 32, 20, 22, 24, 54];
             const startX = 14;
             doc.setFont(undefined, 'bold');
             doc.setFontSize(9);
@@ -3435,16 +3794,16 @@ Required columns (in order):
             y += 5;
             doc.setFont(undefined, 'normal');
 
-            const typeLabels = { received: 'Received', handedToTejas: 'Handed to Tejas', returnedToCoordinator: 'Returned to Coord.' };
-
             filtered.forEach(r => {
                 if (y > 280) { doc.addPage(); y = 18; }
+                const isDemand = r.type === 'demand';
                 const row = [
                     formatDate(r.date),
                     r.coordName,
-                    typeLabels[r.type] || r.type,
+                    isDemand ? 'Demand' : 'Received',
                     'Rs ' + r.amount.toFixed(0),
-                    (r.purpose || r.remark || '').slice(0, 40)
+                    r.settled === 'Yes' ? (isDemand ? 'Returned' : 'Given') : 'Pending',
+                    (r.purpose || r.remark || '').slice(0, 36)
                 ];
                 x = startX;
                 row.forEach((cell, i) => {
@@ -3740,10 +4099,13 @@ Required columns (in order):
             y = 42;
 
             const coordRecords = getCoordRecords().slice().sort((a, b) => new Date(a.date) - new Date(b.date));
-            const totalReceived = coordRecords.filter(r => r.type === 'received').reduce((s, r) => s + r.amount, 0);
-            const totalHanded = coordRecords.filter(r => r.type === 'handedToTejas').reduce((s, r) => s + r.amount, 0);
-            const totalReturned = coordRecords.filter(r => r.type === 'returnedToCoordinator').reduce((s, r) => s + r.amount, 0);
-            const netBalance = totalReceived - totalHanded - totalReturned;
+            const receivedRecords = coordRecords.filter(r => r.type === 'received');
+            const demandRecords = coordRecords.filter(r => r.type === 'demand');
+            const totalReceived = receivedRecords.reduce((s, r) => s + r.amount, 0);
+            const pendingHandover = receivedRecords.filter(r => r.settled === 'Not Yet').reduce((s, r) => s + r.amount, 0);
+            const totalDemanded = demandRecords.reduce((s, r) => s + r.amount, 0);
+            const pendingReturn = demandRecords.filter(r => r.settled === 'Not Yet').reduce((s, r) => s + r.amount, 0);
+            const netBalance = pendingHandover - pendingReturn;
             const grandTotal = feesToGive + (netBalance > 0 ? netBalance : 0);
 
             doc.setFont(undefined, 'bold');
@@ -3753,11 +4115,10 @@ Required columns (in order):
             doc.setFont(undefined, 'normal');
             doc.setFontSize(10);
             const summaryLines = [
-                `Total Received from Coordinator: Rs ${totalReceived.toFixed(0)}`,
-                `Total Handed to Tejas Ghodekar: Rs ${totalHanded.toFixed(0)}`,
-                `Total Returned to Coordinator: Rs ${totalReturned.toFixed(0)}`,
+                `Total Received from Coordinator: Rs ${totalReceived.toFixed(0)}  (Pending Handover: Rs ${pendingHandover.toFixed(0)})`,
+                `Total Demanded by Coordinator: Rs ${totalDemanded.toFixed(0)}  (Pending Return: Rs ${pendingReturn.toFixed(0)})`,
                 netBalance > 0 ? `Coordinator Portion: You are holding Rs ${netBalance.toFixed(0)} to give Tejas Ghodekar`
-                    : netBalance < 0 ? `Coordinator Portion: Check entries - cannot be negative (Rs ${netBalance.toFixed(0)})`
+                    : netBalance < 0 ? `Coordinator Portion: You owe the coordinator Rs ${Math.abs(netBalance).toFixed(0)}`
                     : `Coordinator Portion: Settled (Rs 0)`,
                 `Admission/Renewal Fees Pending to Give: Rs ${feesToGive.toFixed(0)}`,
                 `GRAND TOTAL TO GIVE TEJAS GHODEKAR: Rs ${grandTotal.toFixed(0)}`
@@ -3769,8 +4130,8 @@ Required columns (in order):
             });
             y += 4;
 
-            const coordHeaders = ['Date', 'Coordinator', 'Type', 'Amount', 'Note'];
-            const coordColWidths = [20, 32, 34, 26, 56];
+            const coordHeaders = ['Date', 'Coordinator', 'Type', 'Amount', 'Status', 'Note'];
+            const coordColWidths = [20, 32, 20, 22, 24, 50];
 
             function drawCoordTableHeader() {
                 doc.setFillColor(...navy);
@@ -3786,15 +4147,16 @@ Required columns (in order):
             drawCoordTableHeader();
             doc.setFont(undefined, 'normal');
             doc.setFontSize(8);
-            const coordTypeLabels = { received: 'Received', handedToTejas: 'Handed to Tejas', returnedToCoordinator: 'Returned to Coord.' };
             coordRecords.forEach((r, idx) => {
                 if (y > pageHeight - 26) { doc.addPage(); y = 20; drawCoordTableHeader(); }
                 if (idx % 2 === 0) { doc.setFillColor(...lightGrey); doc.rect(startX, y, pageWidth - 28, 7, 'F'); }
+                const isDemand = r.type === 'demand';
                 const row = [
                     formatDate(r.date),
                     r.coordName,
-                    coordTypeLabels[r.type] || r.type,
+                    isDemand ? 'Demand' : 'Received',
                     'Rs ' + r.amount.toFixed(0),
+                    r.settled === 'Yes' ? (isDemand ? 'Returned' : 'Given') : 'Pending',
                     (r.purpose || r.remark || '').slice(0, 30)
                 ];
                 let x = startX + 2;
@@ -3818,7 +4180,8 @@ Required columns (in order):
             const now = new Date();
 
             document.querySelectorAll('.stmt-quick-btn').forEach(b => { b.style.background = '#fff'; b.style.color = '#4a5568'; });
-            const activeBtn = document.getElementById(preset === 'all' ? 'stmtQuickAll' : preset === 'thismonth' ? 'stmtQuickThis' : 'stmtQuickLast');
+            const btnIds = { all: 'stmtQuickAll', thismonth: 'stmtQuickThis', lastmonth: 'stmtQuickLast', thisyear: 'stmtQuickYear' };
+            const activeBtn = document.getElementById(btnIds[preset]);
             if (activeBtn) { activeBtn.style.background = '#1a56db'; activeBtn.style.color = '#fff'; }
 
             if (preset === 'all') {
@@ -3832,6 +4195,13 @@ Required columns (in order):
             } else if (preset === 'lastmonth') {
                 const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
                 const last = new Date(now.getFullYear(), now.getMonth(), 0);
+                fromInput.value = first.toISOString().split('T')[0];
+                toInput.value = last.toISOString().split('T')[0];
+            } else if (preset === 'thisyear') {
+                // April-to-March academic/financial year, standard in India
+                const startYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+                const first = new Date(startYear, 3, 1);
+                const last = new Date(startYear + 1, 2, 31);
                 fromInput.value = first.toISOString().split('T')[0];
                 toInput.value = last.toISOString().split('T')[0];
             }
@@ -3896,16 +4266,17 @@ Required columns (in order):
                         credit: r.amount,
                         debit: 0
                     });
-                } else if (r.type === 'handedToTejas') {
+                    if (r.settled === 'Yes') {
+                        events.push({
+                            date: r.settledDate || r.date,
+                            particulars: `Handed to Tejas Ghodekar (coordinator collection - ${r.coordName || 'Coordinator'})`,
+                            credit: 0,
+                            debit: r.amount
+                        });
+                    }
+                } else if (r.type === 'demand' && r.settled === 'Yes') {
                     events.push({
-                        date: r.date,
-                        particulars: `Handed to Tejas Ghodekar (coordinator collection - ${r.coordName || 'Coordinator'})${r.purpose ? ' - ' + r.purpose : ''}`,
-                        credit: 0,
-                        debit: r.amount
-                    });
-                } else if (r.type === 'returnedToCoordinator') {
-                    events.push({
-                        date: r.date,
+                        date: r.settledDate || r.date,
                         particulars: `Returned to Coordinator (${r.coordName || 'Coordinator'})${r.purpose ? ' - ' + r.purpose : ''}`,
                         credit: 0,
                         debit: r.amount
@@ -4156,10 +4527,16 @@ Required columns (in order):
             ).reduce((sum, r) => sum + receivedAmt(r), 0);
 
             const coordRecords = getCoordRecords();
-            const coordReceived = coordRecords.filter(r => r.type === 'received').reduce((s, r) => s + r.amount, 0);
-            const coordHanded = coordRecords.filter(r => r.type === 'handedToTejas').reduce((s, r) => s + r.amount, 0);
-            const coordReturned = coordRecords.filter(r => r.type === 'returnedToCoordinator').reduce((s, r) => s + r.amount, 0);
-            const coordNet = coordReceived - coordHanded - coordReturned;
+            if (window.__coordDataMigrated) {
+                sessionStorage.setItem('labFeesMigrationNoticeShown', '1');
+                window.__coordDataMigrated = false;
+                showUndoToast('✅ Coordinator data updated to the latest format — your totals are unchanged.', null, true);
+            }
+            const pendingHandover = coordRecords.filter(r => r.type === 'received' && r.settled === 'Not Yet')
+                .reduce((s, r) => s + r.amount, 0);
+            const pendingReturn = coordRecords.filter(r => r.type === 'demand' && r.settled === 'Not Yet')
+                .reduce((s, r) => s + r.amount, 0);
+            const coordNet = pendingHandover - pendingReturn;
             const coordContribution = coordNet > 0 ? coordNet : 0;
             const grandTotal = feesToGive + coordContribution;
 
