@@ -1106,7 +1106,7 @@
                         <div class="form-group">
                             <label>Money Collected By <span class="required">*</span></label>
                             <select id="collectedBy" required onchange="toggleOtherName(this.value)">
-                                <option value="Tejas Ghodekar (Owner)">Tejas Ghodekar (Owner)</option>
+                                <option value="Owner">Owner</option>
                                 <option value="Other">Other Person</option>
                             </select>
                         </div>
@@ -1664,10 +1664,7 @@
 
         function applyOwnerName() {
             const owner = getOwnerName();
-            // Update "Collected By" owner option
-            const ownerOption = document.querySelector('#collectedBy option[value*="Owner"]');
-            if (ownerOption) ownerOption.value = ownerOption.textContent = owner + ' (Owner)';
-            // Update labels dynamically
+            // "Collected By" stays generic "Owner" — it should never print the owner's actual name on receipts
             document.querySelectorAll('.owner-label').forEach(el => el.textContent = owner);
         }
 
@@ -3306,8 +3303,6 @@
                 <div class="receipt-section">
                     <h4>Collection Details</h4>
                     <div class="receipt-row"><strong>Collected By:</strong> <span>${record.collectedBy}</span></div>
-                    <div class="receipt-row"><strong>Given to Owner:</strong> <span>${record.moneyGivenToTejas}</span></div>
-                    ${record.moneyReturnDate ? `<div class="receipt-row"><strong>Date Given:</strong> <span>${formatDate(record.moneyReturnDate)}</span></div>` : ''}
                 </div>
 
                 ${record.remark ? `<div class="receipt-section"><h4>Remarks</h4><div class="receipt-row">${record.remark}</div></div>` : ''}
@@ -3337,7 +3332,6 @@
 
             const line = '-'.repeat(widthMm === 58 ? 30 : 40);
             const library = getLibraryName();
-            const owner = getOwnerName();
 
             const rows = [
                 { label: 'Date', value: formatDate(record.date) },
@@ -3348,7 +3342,7 @@
                 { label: 'Amount', value: 'Rs ' + record.feesAmount },
                 { label: 'Status', value: record.feesStatus },
                 { label: 'Mode', value: record.paymentType },
-                { label: 'Given to Owner', value: record.moneyGivenToTejas }
+                { label: 'Collected By', value: record.collectedBy || '-' }
             ];
 
             const rowsHTML = rows.map(r => `<div class="tr-row"><span>${r.label}</span><span>${r.value}</span></div>`).join('');
@@ -3698,7 +3692,7 @@
                                 feesStatus: values[6] || 'Pending',
                                 paymentType: values[7] || 'Cash',
                                 transactionId: values[8] || '',
-                                collectedBy: values[9] || `${getOwnerName()} (Owner)`,
+                                collectedBy: values[9] || 'Owner',
                                 moneyGivenToTejas: values[10] || 'Not Yet',
                                 moneyReturnDate: values[11] || '',
                                 dueDate: values[12] || '',
